@@ -1,16 +1,17 @@
 <#
 
 .SYNOPSIS
-This script checks the sync status of your Bobcat and fastsyncs if it is out of sync.
+This script checks the sync status of your Bobcat Miner 300 and invokes fastsync if it is out of sync.
+This can resolve the symptom of a Bobcat shown as offline in the Helium Explorer.
 
 .PARAMETER bobcat_ip
 The private IP Address of your Bobcat miner on your network.
 
 .PARAMETER bobcat_location
-The location of your Bobcat miner.
+The geographic location of your Bobcat Miner 300. Useful to clarify the miner which has the issue when alerting on multiple miners in PagerDuty.
 
 .PARAMETER pd_enabled
-A bolean to enable PagerDuty alering.
+A bolean to enable PagerDuty alerting.
 
 .PARAMETER pd_routing_key
 Your API key for your PagerDuty integration.
@@ -50,7 +51,7 @@ $sync_stats = $hnt_sync | ConvertFrom-Json
 
 $sync_stats.gap
 
-if (!(Test-Path $env:HOME/hnt_stats/)){
+if (!(Test-Path $env:HOME/hnt_stats/)) {
     New-Item -ItemType Directory -Force -Path $env:HOME/hnt_stats/
 }
 
@@ -92,14 +93,12 @@ if ($sync_stats.gap -gt 0) {
     # if ($post_result -eq $post_success) {
     #     Write-Verbose -Message "Fastsync successful. Bobcat is now in sync." -Verbose
     #     Add-content $Logfile -value "Fastsync successful. Bobcat is now in sync."
-    # }
-    # if ($post_result -eq $post_error) {
+    # } elsif ($post_result -eq $post_error) {
     #   while ($post_result -eq $post_error) {
     #       Start-Sleep 60
     #       $post_result = curl --user bobcat:miner --request POST  http://$bobcat_ip/admin/fastsync
     #   }
-    # }
-    # if (($post_result -ne $post_success) -or ($post_result -eq $post_error)) {
+    # } elsif (($post_result -ne $post_success) -or ($post_result -eq $post_error)) {
     #     Write-Verbose -Message "Another type error exists." -Verbose
     #     Add-content $Logfile -value "Another type error exists. Post result: $post_result"
     # }
