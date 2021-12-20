@@ -39,11 +39,11 @@ Param (
 )
 
 if ($IsLinux) {
-    write-host -Message "This script is running on Linux" -Verbose
+    Write-Debug -Message "This script is running on Linux"
     $sync_time = get-date 
     $hnt_sync = curl -H "Content-Type: application/json" --request GET http://$bobcat_ip/status.json
 } else {
-    write-host -Message "This script is running on Windows" -Verbose
+    Write-Debug -Message "This script is running on Windows"
     $hnt_sync = Invoke-WebRequest -Uri http://$bobcat_ip/status.json -UseBasicParsing -OutFile $null
 }
 
@@ -87,23 +87,26 @@ if ($sync_stats.gap -gt 0) {
     } else {
         Write-Verbose -Message "PagerDuty alerting disabled. Skipping PD incident creation." -Verbose
     }
-    # $post_result = curl --user bobcat:miner --request POST  http://$bobcat_ip/admin/fastsync
-    # $post_error = "curl: (56) Recv failure: Connection reset by peer"
-    # $post_success = "Syncing your miner, please leave your power on."
-    # if ($post_result -eq $post_success) {
-    #     Write-Verbose -Message "Fastsync successful. Bobcat is now in sync." -Verbose
-    #     Add-content $Logfile -value "Fastsync successful. Bobcat is now in sync."
-    # } elsif ($post_result -eq $post_error) {
-    #   while ($post_result -eq $post_error) {
-    #       Start-Sleep 60
-    #       $post_result = curl --user bobcat:miner --request POST  http://$bobcat_ip/admin/fastsync
-    #   }
-    # } elsif (($post_result -ne $post_success) -or ($post_result -eq $post_error)) {
-    #     Write-Verbose -Message "Another type error exists." -Verbose
-    #     Add-content $Logfile -value "Another type error exists. Post result: $post_result"
-    # }
+    if ($sync_stats.gap -gt 400) {
+        $post_result = curl --user bobcat:miner --request POST  http://$bobcat_ip/admin/fastsync
+        $post_error = "curl: (56) Recv failure: Connection reset by peer"
+        $post_success = "Syncing your miner, please leave your power on."
+        if ($post_result -eq $post_success) {
+            Write-Verbose -Message "Fastsync successful. Bobcat is now in sync." -Verbose
+            Add-content $Logfile -value "Fastsync successful. Bobcat is now in sync."
+        } elseif ($post_result -eq $post_error) {
+        while ($post_result -eq $post_error) {
+            Start-Sleep 120
+            $post_result = curl --user bobcat:miner --request POST  http://$bobcat_ip/admin/fastsync
+        }
+        } elseif (($post_result -ne $post_success) -or ($post_result -eq $post_error)) {
+            Write-Verbose -Message "Another type error exists." -Verbose
+            Add-content $Logfile -value "Another type error exists. Post result: $post_result"
+        }
+    }
 } else {
     Write-Verbose -Message "Bobcat is in sync. No action required." -Verbose
+    Add-content $Logfile -value "Bobcat is in sync. No action required."
 }
 
 # function Get-PSVersion {
