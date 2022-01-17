@@ -23,7 +23,7 @@ Invoke this script from crontab on Linux or Task Schduler on Windows to run on a
 pwsh -c "./hnt_sync.ps1 -bobcat_ip 10.1.0.100"
 
 .EXAMPLE
-./hnt_sync.ps1 -bobcat_ip 10.1.0.100 -bobcat_locattion "nyc" -pd_enabled 1 -$pd_routing_key xxxxxxxxxxxxxxxxxxxxxxxxxx
+./hnt_sync.ps1 -bobcat_ip 10.1.0.100 -bobcat_location "nyc" -pd_enabled 1 -pd_routing_key xxxxxxxxxxxxxxxxxxxxxxxxx
 
 #>
 
