@@ -25,6 +25,11 @@ pwsh -c "./hnt_sync.ps1 -bobcat_ip 10.1.0.100"
 .EXAMPLE
 ./hnt_sync.ps1 -bobcat_ip 10.1.0.100 -bobcat_location "nyc" -pd_enabled 1 -pd_routing_key xxxxxxxxxxxxxxxxxxxxxxxxx
 
+.EXAMPLE
+$action = New-ScheduledTaskAction -Execute 'pwsh.exe' -Argument '-c $env:HOME\Documents\hnt_monitoring\hnt_sync.ps1 -bobcat_ip 10.1.0.100 -bobcat_location "nyc" -pd_enabled 1 -pd_routing_key xxxxxxxxxxxxxxxxxxxxxxxxx'
+$trigger =  New-ScheduledTaskTrigger -Daily -At 8pm
+Register-ScheduledTask -Action $action -Trigger $trigger -TaskName "hnt_monitor" -Description "Daily run to monitor Bobcat miner sync status"
+
 #>
 
 #Requires -PSEdition Core
@@ -38,9 +43,10 @@ Param (
     [string]    $pd_routing_key
 )
 
+$sync_time = get-date
+
 if ($IsLinux) {
-    Write-Debug -Message "This script is running on Linux"
-    $sync_time = get-date 
+    Write-Debug -Message "This script is running on Linux" 
     $hnt_sync = curl -H "Content-Type: application/json" --request GET http://$bobcat_ip/status.json
 } else {
     Write-Debug -Message "This script is running on Windows"
@@ -49,7 +55,7 @@ if ($IsLinux) {
 
 $sync_stats = $hnt_sync | ConvertFrom-Json
 
-$sync_stats.gap
+$gap = $sync_stats.gap
 
 if (!(Test-Path $env:HOME/hnt_stats/)) {
     New-Item -ItemType Directory -Force -Path $env:HOME/hnt_stats/
@@ -70,7 +76,7 @@ Add-content $Logfile -value $sync_stats
 #     }
 # }
 
-if ($sync_stats.gap -gt 0) {
+if ($gap -gt 0) {
     Write-Verbose -Message "Bobcat is out of sync. Sync gap currently: $($sync_stats.gap) Sending PD alert and attempting fastsync..." -Verbose
     Add-content $Logfile -value "Bobcat is out of sync. Sync gap currently: $($sync_stats.gap) Sending PD alert and attempting fastsync..."
     if ($pd_enabled) {
@@ -80,14 +86,22 @@ if ($sync_stats.gap -gt 0) {
             Import-Module -Name PagerDutyEventV2 -Force
         } else {
             Write-Verbose -Message "PagerDutyEventV2 Powershell module not found. Attempting module install and import..." -Verbose
-            Install-Module -Name PagerDutyEventV2 -Force
+            Install-Module -Name PagerDutyEventV2 -Scope CurrentUser -Force
             Import-Module -Name PagerDutyEventV2 -Force
         }
-        New-PagerDutyAlert -RoutingKey $pd_routing_key -Summary hntAlert -Severity Critical -Source testSource -CustomDetails @{purpose="sync status";region="$bobcat_location"} -DeduplicationKey 'testKey' -Component 'testComponent' -Group 'testGroup' -Class 'testClass'
+        New-PagerDutyAlert -RoutingKey $pd_routing_key `
+            -Summary hntAlert `
+            -Severity Critical `
+            -Source testSource `
+            -CustomDetails @{purpose="sync status";region="$bobcat_location"} `
+            -DeduplicationKey 'testKey' `
+            -Component 'testComponent' `
+            -Group 'testGroup' `
+            -Class 'testClass'
     } else {
         Write-Verbose -Message "PagerDuty alerting disabled. Skipping PD incident creation." -Verbose
     }
-    if ($sync_stats.gap -gt 400) {
+    if ($gap -gt 400) {
         $post_result = curl --user bobcat:miner --request POST  http://$bobcat_ip/admin/fastsync
         $post_error = "curl: (56) Recv failure: Connection reset by peer"
         $post_success = "Syncing your miner, please leave your power on."
