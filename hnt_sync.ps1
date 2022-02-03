@@ -65,30 +65,38 @@ $Logfile = "$env:HOME/hnt_stats/hnt_sync.log"
 Add-Content $Logfile -value $sync_time
 Add-Content $Logfile -value $sync_stats
 
-# function Import-Pd {
-#     if (Get-Module -ListAvailable -Name PagerDutyEventV2) {
-#         Write-Verbose -Message "PagerDutyEventV2 Powershell module found. Attempting module import..." -Verbose
-#         Import-Module -Name PagerDutyEventV2 -Force
-#     } else {
-#         Write-Verbose -Message "PagerDutyEventV2 Powershell module not found. Attempting module install and import..." -Verbose
-#         Install-Module -Name PagerDutyEventV2 -Force
-#         Import-Module -Name PagerDutyEventV2 -Force
-#     }
-# }
+function Import-Pd {
+    if (Get-Module -ListAvailable -Name PagerDutyEventV2) {
+        Write-Verbose -Message "PagerDutyEventV2 Powershell module found. Attempting module import..." -Verbose
+        Import-Module -Name PagerDutyEventV2 -Force
+    } else {
+        Write-Verbose -Message "PagerDutyEventV2 Powershell module not found. Attempting module install and import..." -Verbose
+        Install-Module -Name PagerDutyEventV2 -Scope CurrentUser -Force
+        Import-Module -Name PagerDutyEventV2 -Force
+    }
+}
+
+function Write-Hntsuccess {
+    Write-Verbose -Message "Bobcat is in sync. No action required." -Verbose
+    Add-Content $Logfile -value "Bobcat is in sync. No action required."
+}
 
 if ($gap -gt 0) {
-    Write-Verbose -Message "Bobcat is out of sync. Sync gap currently: $($sync_stats.gap) Sending PD alert and attempting fastsync..." -Verbose
-    Add-Content $Logfile -value "Bobcat is out of sync. Sync gap currently: $($sync_stats.gap) Sending PD alert and attempting fastsync..."
+    Write-Verbose -Message "Bobcat is out of sync. Sync gap currently: $($sync_stats.gap) Sending PD alert..." -Verbose
+    Add-Content $Logfile -value "Bobcat is out of sync. Sync gap currently: $($sync_stats.gap) Sending PD alert..."
     if ($pd_enabled) {
         Write-Verbose -Message "PagerDuty alerting enabled. Attempting to create PD incident." -Verbose
-        if (Get-Module -ListAvailable -Name PagerDutyEventV2) {
-            Write-Verbose -Message "PagerDutyEventV2 Powershell module found. Attempting module import..." -Verbose
-            Import-Module -Name PagerDutyEventV2 -Force
-        } else {
-            Write-Verbose -Message "PagerDutyEventV2 Powershell module not found. Attempting module install and import..." -Verbose
-            Install-Module -Name PagerDutyEventV2 -Scope CurrentUser -Force
-            Import-Module -Name PagerDutyEventV2 -Force
-        }
+        Import-Pd
+
+        # if (Get-Module -ListAvailable -Name PagerDutyEventV2) {
+        #     Write-Verbose -Message "PagerDutyEventV2 Powershell module found. Attempting module import..." -Verbose
+        #     Import-Module -Name PagerDutyEventV2 -Force
+        # } else {
+        #     Write-Verbose -Message "PagerDutyEventV2 Powershell module not found. Attempting module install and import..." -Verbose
+        #     Install-Module -Name PagerDutyEventV2 -Scope CurrentUser -Force
+        #     Import-Module -Name PagerDutyEventV2 -Force
+        # }
+
         New-PagerDutyAlert -RoutingKey $pd_routing_key `
             -Summary hntAlert `
             -Severity Critical `
@@ -103,7 +111,7 @@ if ($gap -gt 0) {
     }
     if ($gap -gt 400) {
         if ($IsLinux) {
-            Write-Debug -Message "Running Linux native curl command"
+            Write-Debug -Message "Fast sync required - Running Linux native curl command"
             $post_result = curl --user bobcat:miner --request POST  http://$bobcat_ip/admin/fastsync
             $post_error = "curl: (56) Recv failure: Connection reset by peer"
             $post_success = "Syncing your miner, please leave your power on."
@@ -120,7 +128,7 @@ if ($gap -gt 0) {
                 Add-Content $Logfile -value "Another type error exists. Post result: $post_result"
             }
         } elseif ($IsWindows) {
-            Write-Debug -Message "Running Windows PowerShell curl command"
+            Write-Debug -Message "Fast sync required - Running Windows PowerShell curl command"
             $post_result = curl --user bobcat:miner --request POST  http://$bobcat_ip/admin/fastsync
             $post_error = "curl: (56) Recv failure: Connection reset by peer"
             $post_success = "Syncing your miner, please leave your power on."
@@ -139,13 +147,5 @@ if ($gap -gt 0) {
         }
     }
 } else {
-    Write-Verbose -Message "Bobcat is in sync. No action required." -Verbose
-    Add-Content $Logfile -value "Bobcat is in sync. No action required."
+    Write-Hntsuccess
 }
-
-# function Get-PSVersion {
-#     $PSVersionTable.PSVersion
-#     Write-Verbose -Message "Bobcat is in sync. No action required." -Verbose
-# }
-
-# Get-PSVersion
